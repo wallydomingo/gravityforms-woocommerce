@@ -1,0 +1,66 @@
+paste on functions.php
+
+// // Custom Woocommerce Payment Confirmation Using Gravity Form //
+ 
+// Set these variables
+// - set gravity form to receive order_id as param
+global $payment_confirm_page_id;
+global $gf_orderid_entry;
+global $gravity_form_id;
+$payment_confirm_page_id = 43428;
+$gravity_form_id = '2';
+$gf_orderid_entry = '1';
+ 
+add_filter( 'woocommerce_my_account_my_orders_actions', 'tfd_myaccount_payment_confirm', 2, 2 );
+function tfd_myaccount_payment_confirm( $actions, $order ) {
+global $payment_confirm_page_id;
+ 
+if ( $order->status == 'on-hold' || $order->status == 'wc-pending' ) {
+$actions['tfd_payment_confirm'] = array(
+'url' => get_permalink( $payment_confirm_page_id ) . '?order_id=' . $order->ID,
+'name' => __( 'Notificar Depósito', 'woocommerce' ),
+);
+}
+return $actions;
+}
+ 
+function register_payment_confirmed_order_status() {
+register_post_status( 'wc-payment-confirmed', array(
+'label' => 'Notificacion Deposito/Procesando',
+'public' => true,
+'exclude_from_search' => false,
+'show_in_admin_all_list' => true,
+'show_in_admin_status_list' => true,
+'label_count' => _n_noop( 'Notificacion Deposito <span class="count">(%s)</span>', 'Notificacion Deposito <span class="count">(%s)</span>' )
+) );
+}
+add_action( 'init', 'register_payment_confirmed_order_status' );
+ 
+function add_payment_confirmed_to_order_statuses( $order_statuses ) {
+ 
+$new_order_statuses = array();
+ 
+// add new order status after processing
+foreach ( $order_statuses as $key => $status ) {
+ 
+$new_order_statuses[ $key ] = $status;
+ 
+if ( 'wc-on-hold' === $key ) {
+$new_order_statuses['wc-payment-confirmed'] = 'Notificacion Deposito/Procesando';
+}
+}
+ 
+return $new_order_statuses;
+}
+add_filter( 'wc_order_statuses', 'add_payment_confirmed_to_order_statuses' );
+ 
+add_action( 'gform_after_submission_'.$gravity_form_id, 'tfd_after_submission_change_order_status', 10, 2 );
+function tfd_after_submission_change_order_status( $entry, $form ) {
+global $gf_orderid_entry;
+$order_id = rgar( $entry, '1' );
+$order = new WC_Order($order_id);
+ 
+if (!empty($order)) {
+$order->update_status( 'Notificacion Deposito/Procesando', '', true );
+}
+}
